@@ -1,0 +1,12 @@
+name: retro_RL_env
+channels:
+  - defaults
+dependencies:
+  - python=3.7
+  - numpy
+  - matplotlib
+  - scipy
+pip install:
+  - gym
+  - gym-retro
+prefix: /home/goliagri/anaconda3/envs/retro_RL_env
