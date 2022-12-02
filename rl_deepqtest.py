@@ -13,7 +13,6 @@ from tqdm import tqdm
 
 enviroment = gym.make("Taxi-v3").env
 enviroment.render()
-NUM_AGENTS = 2
 
 print('Number of states: {}'.format(enviroment.observation_space.n))
 print('Number of actions: {}'.format(enviroment.action_space.n))
@@ -65,7 +64,7 @@ class Agent:
         minibatch = random.sample(self.expirience_replay, batch_size)
         
         for state, action, reward, next_state, terminated in minibatch:
-            
+            print(state)
             target = self.q_network.predict(state, verbose=0)
             
             if terminated:
@@ -73,7 +72,7 @@ class Agent:
             else:
                 t = self.target_network.predict(next_state, verbose=0)
                 target[0][action] = reward + self.gamma * np.amax(t)
-            
+                
             self.q_network.fit(state, target, epochs=1, verbose=0)
 
 optimizer = Adam(learning_rate=0.01)

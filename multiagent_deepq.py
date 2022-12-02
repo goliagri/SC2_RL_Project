@@ -66,18 +66,18 @@ class Agent:
 
     def retrain(self, batch_size):
         minibatch = random.sample(self.expirience_replay, batch_size)
-        
         for state, action, reward, next_state, terminated in minibatch:
             for agent_idx in range(NUM_AGENTS):
+                print(state[agent_idx])
                 target = self.q_network.predict(state[agent_idx], verbose=0)
                 
                 if terminated:
                     target[0][action[agent_idx]] = reward
                 else:
-                    t = self.target_network.predict(next_state, verbose=0)
+                    t = self.target_network.predict(next_state[agent_idx], verbose=0)
                     target[0][action[agent_idx]] = reward + self.gamma * np.amax(t)
                 
-                self.q_network.fit(state, target, epochs=1, verbose=0)
+                self.q_network.fit(state[agent_idx], target, epochs=1, verbose=0)
 
 optimizer = Adam(learning_rate=0.01)
 agent = Agent(env, optimizer)
@@ -92,7 +92,8 @@ def train_model():
     for e in range(0, num_of_episodes):
         # Reset the env
         state = env.reset()
-        state = np.reshape(state, [1, 1])
+        #state = [np.reshape(state_part, [1,1]) for state_part in state]
+        #state = np.reshape(state, [1, 1])
 
         # Initialize variables
         reward = 0
@@ -101,15 +102,16 @@ def train_model():
         #bar = progressbar.ProgressBar(maxval=timesteps_per_episode/10, widgets=\
         #    [progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         #bar.start()
-        
         for timestep in tqdm (range (timesteps_per_episode), desc="Loading…",  ascii=False, ncols=75):
         #for timestep in range(timesteps_per_episode):
             # Run Action
             action = agent.act(state)
-            # Take action    
+            # Take action
             next_state, reward, terminated, info = env.step(action) 
             reward = reward[0]
-            next_state = np.reshape(next_state, [1, 1])
+            terminated = terminated[0]
+            #next_state = [np.reshape(state_part, [1,1]) for state_part in next_state]
+            #next_state = np.reshape(next_state, [1, 1])
             running_reward = running_reward_update * running_reward +  (1-running_reward_update) * reward
             agent.store(state, action, reward, next_state, terminated)
             state = next_state
@@ -118,14 +120,14 @@ def train_model():
                 agent.alighn_target_model()
                 break
                 
-            if len(agent.expirience_replay) > batch_size and timestep % batch_size == 0:
+            if len(agent.expirience_replay) > batch_size and timestep % 10 == 0:
                 agent.retrain(batch_size)
             
             #if timestep%10 == 0:
             #    bar.update(timestep/10 + 1)
         print(running_reward)
         #bar.finish()
-        if (e + 1) % 10 == 0:
+        if (e + 1) % 1 == 0:
             print("**********************************")
             print("Episode: {}".format(e + 1))
             env.render()
