@@ -15,6 +15,7 @@ enviroment = gym.make("Taxi-v3").env
 enviroment.render()
 
 print('Number of states: {}'.format(enviroment.observation_space.n))
+print(enviroment.observation_space)
 print('Number of actions: {}'.format(enviroment.action_space.n))
 
 class Agent:
@@ -101,6 +102,7 @@ def train_model():
         for timestep in tqdm (range (timesteps_per_episode), desc="Loading…",  ascii=False, ncols=75):
         #for timestep in range(timesteps_per_episode):
             # Run Action
+            print(state)
             action = agent.act(state)
             # Take action    
             next_state, reward, terminated, info = enviroment.step(action) 

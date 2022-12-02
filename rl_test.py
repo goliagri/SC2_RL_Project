@@ -33,6 +33,7 @@ running_reward = 0
 episode_count = 0
 
 while True:  # Run until solved
+    model.summary()
     state = env.reset()
     episode_reward = 0
     with tf.GradientTape() as tape:

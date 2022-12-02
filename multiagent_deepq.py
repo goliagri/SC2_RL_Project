@@ -9,6 +9,7 @@ from keras import Model, Sequential
 from keras.layers import Dense, Embedding, Reshape
 from keras.optimizers import Adam
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 env = gym.make('ma_gym:Checkers-v3')
 env.reset()
@@ -17,6 +18,7 @@ env.render()
 NUM_AGENTS = len(env.observation_space.sample())
 print('Number of agents {}'.format(NUM_AGENTS))
 print('Number of states: {}'.format(len(env.observation_space.sample()[0])))
+#print(env.observation_space)
 print('Number of actions: {}'.format(list(env.action_space)[0].n))
 class Agent:
     def __init__(self, env, optimizer):
@@ -29,7 +31,7 @@ class Agent:
         self.expirience_replay = deque(maxlen=2000)
         
         # Initialize discount and exploration rate
-        self.gamma = 0.6
+        self.gamma = 0.9
         self.epsilon = 0.1  
         
         # Build networks
@@ -42,8 +44,9 @@ class Agent:
     
     def _build_compile_model(self):
         model = Sequential()
-        model.add(Embedding(self._state_size, 10, input_length=1))
-        model.add(Reshape((10,)))
+        #model.add(Embedding(self._state_size, 10, input_length=self._state_size))
+        #model.add(Reshape((10,)))
+        model.add(layers.Input(shape=(self._state_size,)))
         model.add(Dense(50, activation='relu'))
         model.add(Dense(50, activation='relu'))
         model.add(Dense(self._action_size, activation='linear'))
@@ -59,8 +62,9 @@ class Agent:
         for agent_idx in range(NUM_AGENTS):
             if np.random.rand() <= self.epsilon:
                 return env.action_space.sample()
-        
-            q_values = self.q_network.predict(state[agent_idx], verbose=0)
+
+            cur_state = np.array(state[agent_idx]).reshape(1,-1)
+            q_values = self.q_network.predict(cur_state, verbose=0)
             actions.append(np.argmax(q_values[0]))
         return actions
 
@@ -68,27 +72,31 @@ class Agent:
         minibatch = random.sample(self.expirience_replay, batch_size)
         for state, action, reward, next_state, terminated in minibatch:
             for agent_idx in range(NUM_AGENTS):
-                print(state[agent_idx])
-                target = self.q_network.predict(state[agent_idx], verbose=0)
-                
+                #print(state[agent_idx])
+                cur_state = np.array(state[agent_idx]).reshape(1,-1)
+                target = self.q_network.predict(cur_state, verbose=0)
+                #target = self.q_network.predict(state[agent_idx], verbose=0)
+                #print(target)
                 if terminated:
                     target[0][action[agent_idx]] = reward
                 else:
-                    t = self.target_network.predict(next_state[agent_idx], verbose=0)
+                    t = self.target_network.predict(cur_state, verbose=0)
                     target[0][action[agent_idx]] = reward + self.gamma * np.amax(t)
                 
-                self.q_network.fit(state[agent_idx], target, epochs=1, verbose=0)
+                self.q_network.fit(cur_state, target, epochs=1, verbose=0)
 
 optimizer = Adam(learning_rate=0.01)
 agent = Agent(env, optimizer)
 
 def train_model():
-    batch_size = 32
+    init_epsilon = 0.1
+    batch_size = 64
     num_of_episodes = 100
     timesteps_per_episode = 1000
     agent.q_network.summary()
     running_reward_update = .99
     running_reward = 0
+    episode_value_history = []
     for e in range(0, num_of_episodes):
         # Reset the env
         state = env.reset()
@@ -96,9 +104,10 @@ def train_model():
         #state = np.reshape(state, [1, 1])
 
         # Initialize variables
+        episode_value = 0
         reward = 0
         terminated = False
-
+        
         #bar = progressbar.ProgressBar(maxval=timesteps_per_episode/10, widgets=\
         #    [progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
         #bar.start()
@@ -112,7 +121,7 @@ def train_model():
             terminated = terminated[0]
             #next_state = [np.reshape(state_part, [1,1]) for state_part in next_state]
             #next_state = np.reshape(next_state, [1, 1])
-            running_reward = running_reward_update * running_reward +  (1-running_reward_update) * reward
+            episode_value += reward
             agent.store(state, action, reward, next_state, terminated)
             state = next_state
             
@@ -120,18 +129,25 @@ def train_model():
                 agent.alighn_target_model()
                 break
                 
-            if len(agent.expirience_replay) > batch_size and timestep % 10 == 0:
-                agent.retrain(batch_size)
+        if len(agent.expirience_replay) > batch_size:
+            agent.retrain(batch_size)
             
             #if timestep%10 == 0:
             #    bar.update(timestep/10 + 1)
-        print(running_reward)
+        print('episode_value: {}'.format(episode_value))
+        #print(running_reward)
+        episode_value_history.append(episode_value)
         #bar.finish()
-        if (e + 1) % 1 == 0:
+        if (e + 1) % 5 == 0:
             print("**********************************")
             print("Episode: {}".format(e + 1))
+            print('average value over last 5 episode: {}'.format(sum(episode_value_history[-5:])))
             env.render()
             print("**********************************")
+    return episode_value_history
 
-
-train_model()
+episode_value_history = train_model()
+print(episode_value_history)
+plt.plot(episode_value_history)
+plt.savefig('multidimdeepQ_checkers_valhist.pdf')
+plt.close()
