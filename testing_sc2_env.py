@@ -6,12 +6,6 @@ from sc2.bot_ai import BotAI
 import numpy as np
 import get_features
 
-class WorkerRushBot(BotAI):
-    async def on_step(self, iteration: int):
-        if iteration == 0:
-            for worker in self.workers:
-                worker.attack(self.enemy_start_locations[0])
-
 class SimpleMineralBot(BotAI):
     async def on_start(self):
         self.client.game_step: int = 2
@@ -27,13 +21,15 @@ class SimpleMineralBot(BotAI):
             elif not worker.is_collecting:
                 field = self.mineral_field.random
                 worker.gather(field)
+        
+        
 
 
-    def get_features_1(self):
+    def get_features(self):
         for worker in self.workers:
-            self.get_indiv_features_1(worker)
+            self.get_indiv_features(worker)
 
-    def get_indiv_features_1(self, unit):
+    def get_indiv_features(self, unit):
         '''
         All enemy/allies distances, health, shield, self health, shield, has minerals
         '''
@@ -51,7 +47,35 @@ class SimpleMineralBot(BotAI):
 
         return enemy_feats + ally_feats + self_feats
         
+class simpleRLBot(BotAI):
+    async def on_start(self):
+        self.client.game_step: int = 2
+        
+    async def on_step(self, iteration: int):
 
+        for worker in self.workers:
+            meele_enemies = self.enemy_units.closer_than(3, worker)
+            #meele_enemies = list(filter(worker.target_in_range, list(self.enemy_units)))
+            if worker.shield > 0 and len(meele_enemies) > 0:
+                meele_enemies.sort(key=worker.distance_to)
+                worker.attack(meele_enemies[0])
+            elif not worker.is_collecting:
+                field = self.mineral_field.random
+                worker.gather(field)
+
+    def get_indiv_features_1(self, unit):
+        '''
+        All enemy/allies distances, health, shield, self health, shield, has minerals
+        '''
+        feats = []
+
+        feats.append(unit.health, unit.shield, int(unit.is_carrying_resource))
+        if len(list(self.enemy_units)) > 0:
+            closest_enemy = self.enemy_units.closest_to(unit)
+            feats.append(closest_enemy.health, closest_enemy.distance_to_squared(unit), )
+
+        return feats
+        
         
 
 
